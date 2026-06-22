@@ -79,6 +79,14 @@ EVENT_COLUMNS = [
     "source_body_lite",
 ]
 READABLE_COLUMNS = [column for column in EVENT_COLUMNS if column != "source_body_lite"]
+ARTICLE_COLUMNS = [
+    "event_id",
+    "category",
+    "source_title",
+    "source_url",
+    "source_body_lite",
+    "summary",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -219,6 +227,10 @@ def json_cell(value: Any) -> str:
     return str(value)
 
 
+def single_line_cell(value: Any) -> str:
+    return json_cell(value).replace("\r", "\\r").replace("\n", "\\n").replace("\t", " ")
+
+
 def company_fields(
     included_index: dict[tuple[str, str], dict[str, Any]], company_id: str, prefix: str
 ) -> dict[str, str]:
@@ -278,6 +290,17 @@ def flatten_event(
     row.update(company_fields(included_index, company2_id, "company2"))
     row.update(source_fields(included_index, source_id))
     return row
+
+
+def article_row(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "event_id": row.get("id", ""),
+        "category": row.get("category", ""),
+        "source_title": single_line_cell(row.get("source_title", "")),
+        "source_url": row.get("source_url", ""),
+        "source_body_lite": single_line_cell(row.get("source_body_lite", "")),
+        "summary": single_line_cell(row.get("summary", "")),
+    }
 
 
 def is_in_date_range(item: dict[str, Any], start_at: datetime, end_before: datetime) -> bool:
@@ -379,6 +402,7 @@ def main() -> int:
     csv_path = output_dir / f"news_events_{date_label}.csv"
     tsv_path = output_dir / f"news_events_{date_label}.tsv"
     readable_tsv_path = output_dir / f"news_events_readable_{date_label}.tsv"
+    articles_tsv_path = output_dir / f"news_events_articles_{date_label}.tsv"
     counts_path = output_dir / f"category_counts_{date_label}.csv"
 
     with raw_json_path.open("w", encoding="utf-8") as output_file:
@@ -388,6 +412,12 @@ def main() -> int:
     write_rows(csv_path, rows, delimiter=",", fieldnames=READABLE_COLUMNS)
     write_rows(tsv_path, rows, delimiter="\t", fieldnames=EVENT_COLUMNS)
     write_rows(readable_tsv_path, rows, delimiter="\t", fieldnames=READABLE_COLUMNS)
+    write_rows(
+        articles_tsv_path,
+        [article_row(row) for row in rows],
+        delimiter="\t",
+        fieldnames=ARTICLE_COLUMNS,
+    )
     write_counts(counts_path, categories, counts)
 
     print("\nCategory counts")
@@ -400,6 +430,7 @@ def main() -> int:
     print(csv_path)
     print(tsv_path)
     print(readable_tsv_path)
+    print(articles_tsv_path)
     print(counts_path)
 
     return 0
