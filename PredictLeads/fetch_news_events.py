@@ -78,6 +78,7 @@ EVENT_COLUMNS = [
     "source_image_url",
     "source_body_lite",
 ]
+READABLE_COLUMNS = [column for column in EVENT_COLUMNS if column != "source_body_lite"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -293,11 +294,13 @@ def page_is_before_start(page: dict[str, Any], start_at: datetime) -> bool:
     return bool(found_dates and max(found_dates) < start_at)
 
 
-def write_rows(path: Path, rows: list[dict[str, str]], delimiter: str) -> None:
+def write_rows(
+    path: Path, rows: list[dict[str, str]], delimiter: str, fieldnames: list[str]
+) -> None:
     with path.open("w", encoding="utf-8", newline="") as output_file:
         writer = csv.DictWriter(
             output_file,
-            fieldnames=EVENT_COLUMNS,
+            fieldnames=fieldnames,
             delimiter=delimiter,
             extrasaction="ignore",
             lineterminator="\n",
@@ -375,14 +378,16 @@ def main() -> int:
     raw_json_path = output_dir / f"news_events_raw_api_responses_{date_label}.json"
     csv_path = output_dir / f"news_events_{date_label}.csv"
     tsv_path = output_dir / f"news_events_{date_label}.tsv"
+    readable_tsv_path = output_dir / f"news_events_readable_{date_label}.tsv"
     counts_path = output_dir / f"category_counts_{date_label}.csv"
 
     with raw_json_path.open("w", encoding="utf-8") as output_file:
         json.dump(raw_pages, output_file, ensure_ascii=False, indent=2)
         output_file.write("\n")
 
-    write_rows(csv_path, rows, delimiter=",")
-    write_rows(tsv_path, rows, delimiter="\t")
+    write_rows(csv_path, rows, delimiter=",", fieldnames=READABLE_COLUMNS)
+    write_rows(tsv_path, rows, delimiter="\t", fieldnames=EVENT_COLUMNS)
+    write_rows(readable_tsv_path, rows, delimiter="\t", fieldnames=READABLE_COLUMNS)
     write_counts(counts_path, categories, counts)
 
     print("\nCategory counts")
@@ -394,6 +399,7 @@ def main() -> int:
     print(raw_json_path)
     print(csv_path)
     print(tsv_path)
+    print(readable_tsv_path)
     print(counts_path)
 
     return 0

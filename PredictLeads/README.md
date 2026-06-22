@@ -34,8 +34,9 @@ run: python3 PredictLeads/fetch_news_events.py
 Files are written to `PredictLeads/output/`:
 
 - `news_events_raw_api_responses_2026-06-15_to_2026-06-17.json`
-- `news_events_2026-06-15_to_2026-06-17.csv`
-- `news_events_2026-06-15_to_2026-06-17.tsv`
+- `news_events_2026-06-15_to_2026-06-17.csv` - readable export without `source_body_lite`
+- `news_events_2026-06-15_to_2026-06-17.tsv` - full export with `source_body_lite` preserved
+- `news_events_readable_2026-06-15_to_2026-06-17.tsv` - readable TSV without `source_body_lite`
 - `category_counts_2026-06-15_to_2026-06-17.csv`
 
-The TSV includes the `source_body_lite` column. If PredictLeads returns article text as `body`, the script maps it into `source_body_lite` and preserves the full value.
+The full TSV includes the `source_body_lite` column. If PredictLeads returns article text as `body`, the script maps it into `source_body_lite` and preserves the full value. Use the CSV or readable TSV for spreadsheet review.
