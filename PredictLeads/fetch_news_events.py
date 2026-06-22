@@ -427,7 +427,7 @@ def main() -> int:
     csv_path = output_dir / f"news_events_{date_label}.csv"
     tsv_path = output_dir / f"news_events_{date_label}.tsv"
     readable_tsv_path = output_dir / f"news_events_readable_{date_label}.tsv"
-    articles_tsv_path = output_dir / f"news_events_articles_{date_label}.tsv"
+    full_review_tsv_path = output_dir / f"news_events_full_review_{date_label}.tsv"
     counts_path = output_dir / f"category_counts_{date_label}.csv"
 
     with raw_json_path.open("w", encoding="utf-8") as output_file:
@@ -438,7 +438,7 @@ def main() -> int:
     write_rows(tsv_path, rows, delimiter="\t", fieldnames=EVENT_COLUMNS)
     write_rows(readable_tsv_path, rows, delimiter="\t", fieldnames=READABLE_COLUMNS)
     write_rows(
-        articles_tsv_path,
+        full_review_tsv_path,
         [article_row(row) for row in rows],
         delimiter="\t",
         fieldnames=ARTICLE_COLUMNS,
@@ -455,7 +455,7 @@ def main() -> int:
     print(csv_path)
     print(tsv_path)
     print(readable_tsv_path)
-    print(articles_tsv_path)
+    print(full_review_tsv_path)
     print(counts_path)
 
     return 0
