@@ -82,10 +82,22 @@ READABLE_COLUMNS = [column for column in EVENT_COLUMNS if column != "source_body
 ARTICLE_COLUMNS = [
     "event_id",
     "category",
+    "found_at",
+    "effective_date",
+    "planning",
+    "amount",
+    "amount_normalized",
+    "party_1_domain",
+    "party_1_name",
+    "party_2_domain",
+    "party_2_name",
     "source_title",
     "source_url",
+    "source_published_at",
+    "article_sentence",
     "source_body_lite",
     "summary",
+    "source_body_chars",
 ]
 
 
@@ -293,13 +305,26 @@ def flatten_event(
 
 
 def article_row(row: dict[str, str]) -> dict[str, str]:
+    source_body_lite = row.get("source_body_lite", "")
     return {
         "event_id": row.get("id", ""),
         "category": row.get("category", ""),
+        "found_at": row.get("found_at", ""),
+        "effective_date": row.get("effective_date", ""),
+        "planning": row.get("planning", ""),
+        "amount": row.get("amount", ""),
+        "amount_normalized": row.get("amount_normalized", ""),
+        "party_1_domain": row.get("company1_domain", ""),
+        "party_1_name": row.get("company1_name", ""),
+        "party_2_domain": row.get("company2_domain", ""),
+        "party_2_name": row.get("company2_name", ""),
         "source_title": single_line_cell(row.get("source_title", "")),
         "source_url": row.get("source_url", ""),
-        "source_body_lite": single_line_cell(row.get("source_body_lite", "")),
+        "source_published_at": row.get("source_published_at", ""),
+        "article_sentence": single_line_cell(row.get("article_sentence", "")),
+        "source_body_lite": single_line_cell(source_body_lite),
         "summary": single_line_cell(row.get("summary", "")),
+        "source_body_chars": str(len(source_body_lite)),
     }
 
 
