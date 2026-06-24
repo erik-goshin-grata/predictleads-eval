@@ -18,6 +18,15 @@ export PL_TOKEN="your_api_token"
 python3 fetch_news_events.py
 ```
 
+To find events where a company is specifically `party_2_domain`, pass the domain:
+
+```bash
+python3 fetch_news_events.py \
+  --party-2-domain www.tetrasolv.com \
+  --start-date 2026-06-17 \
+  --end-date 2026-06-24
+```
+
 ## GitHub Actions
 
 Pass GitHub Secrets into environment variables before running the script:

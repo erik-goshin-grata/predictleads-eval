@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -18,7 +19,8 @@ from pathlib import Path
 from typing import Any
 
 
-API_URL = "https://predictleads.com/api/v3/discover/news_events"
+DISCOVER_API_URL = "https://predictleads.com/api/v3/discover/news_events"
+COMPANY_NEWS_EVENTS_API_URL = "https://predictleads.com/api/v3/companies/{domain}/news_events"
 DEFAULT_CATEGORIES = [
     "acquires",
     "merges_with",
@@ -115,6 +117,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES)
     parser.add_argument(
+        "--party-2-domain",
+        default="",
+        help=(
+            "Keep only rows where PredictLeads company2_domain / party_2_domain "
+            "matches this domain."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         default=str(Path(__file__).resolve().parent / "output"),
         help="Directory where output files will be written.",
@@ -168,16 +178,51 @@ def parse_datetime(value: Any) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def build_url(categories: list[str], page: int, limit: int) -> str:
-    query = urllib.parse.urlencode(
-        {
-            "categories": ",".join(categories),
-            "page": page,
-            "limit": limit,
-        },
-        safe=",",
-    )
-    return f"{API_URL}?{query}"
+def normalize_domain(value: str) -> str:
+    domain = value.strip().lower()
+    if "://" in domain:
+        parsed = urllib.parse.urlparse(domain)
+        domain = parsed.netloc or parsed.path
+    domain = domain.split("/")[0].split("?")[0].strip()
+    if domain.startswith("www."):
+        domain = domain[4:]
+    return domain
+
+
+def domains_match(left: str, right: str) -> bool:
+    return bool(normalize_domain(left) and normalize_domain(left) == normalize_domain(right))
+
+
+def safe_label(value: str) -> str:
+    label = normalize_domain(value) or value.strip().lower()
+    return re.sub(r"[^a-z0-9]+", "_", label).strip("_") or "domain"
+
+
+def build_url(
+    categories: list[str],
+    page: int,
+    limit: int,
+    start_date: date,
+    end_date: date,
+    company_domain: str = "",
+) -> str:
+    query_params: dict[str, str | int] = {
+        "categories": ",".join(categories),
+        "page": page,
+        "limit": limit,
+    }
+
+    if company_domain:
+        query_params["found_at_from"] = start_date.isoformat()
+        query_params["found_at_until"] = end_date.isoformat()
+        query = urllib.parse.urlencode(query_params, safe=",")
+        domain = urllib.parse.quote(
+            normalize_domain(company_domain) or company_domain.strip(), safe=""
+        )
+        return f"{COMPANY_NEWS_EVENTS_API_URL.format(domain=domain)}?{query}"
+
+    query = urllib.parse.urlencode(query_params, safe=",")
+    return f"{DISCOVER_API_URL}?{query}"
 
 
 def fetch_json(url: str, api_key: str, api_token: str, retries: int = 3) -> dict[str, Any]:
@@ -369,6 +414,9 @@ def write_counts(path: Path, categories: list[str], counts: Counter[str]) -> Non
 def main() -> int:
     args = parse_args()
     categories = [category.strip() for category in args.categories.split(",") if category.strip()]
+    party_2_domain = args.party_2_domain.strip()
+    company_domain = party_2_domain
+
     start_date = parse_date(args.start_date)
     end_date = parse_date(args.end_date)
 
@@ -383,8 +431,17 @@ def main() -> int:
     end_before = datetime.combine(end_date + timedelta(days=1), dt_time.min, tzinfo=timezone.utc)
     output_dir = Path(args.output_dir)
     date_label = f"{start_date.isoformat()}_to_{end_date.isoformat()}"
+    if party_2_domain:
+        date_label = f"party2_{safe_label(party_2_domain)}_{date_label}"
 
-    first_url = build_url(categories, page=1, limit=args.limit)
+    first_url = build_url(
+        categories,
+        page=1,
+        limit=args.limit,
+        start_date=start_date,
+        end_date=end_date,
+        company_domain=company_domain,
+    )
     if args.dry_run:
         print(first_url)
         return 0
@@ -396,7 +453,14 @@ def main() -> int:
     filtered_events_by_id: dict[str, dict[str, Any]] = {}
 
     for page_number in range(1, args.max_pages + 1):
-        url = build_url(categories, page=page_number, limit=args.limit)
+        url = build_url(
+            categories,
+            page=page_number,
+            limit=args.limit,
+            start_date=start_date,
+            end_date=end_date,
+            company_domain=company_domain,
+        )
         page = fetch_json(url, api_key, api_token)
         raw_pages.append(page)
 
@@ -421,6 +485,12 @@ def main() -> int:
     filtered_events = list(filtered_events_by_id.values())
     included_index = build_included_index(raw_pages)
     rows = [flatten_event(item, included_index) for item in filtered_events]
+    if party_2_domain:
+        rows = [
+            row
+            for row in rows
+            if domains_match(row.get("company2_domain", ""), party_2_domain)
+        ]
     counts = Counter(row["category"] for row in rows)
 
     raw_json_path = output_dir / f"news_events_raw_api_responses_{date_label}.json"
